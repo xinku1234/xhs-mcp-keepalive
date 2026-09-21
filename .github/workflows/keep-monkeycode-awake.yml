@@ -1,0 +1,67 @@
+name: Keep MonkeyCode MCP Awake
+
+on:
+  schedule:
+    # Run every 10 minutes, offset from the top of the hour.
+    - cron: "3,13,23,33,43,53 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monkeycode-mcp-keepalive
+  cancel-in-progress: true
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Check configuration
+        env:
+          MCP_URL: ${{ secrets.MONKEYCODE_MCP_URL }}
+        shell: bash
+        run: |
+          if [ -z "$MCP_URL" ]; then
+            echo "::error::Missing repository secret MONKEYCODE_MCP_URL"
+            exit 1
+          fi
+
+      - name: Ping MonkeyCode MCP
+        env:
+          MCP_URL: ${{ secrets.MONKEYCODE_MCP_URL }}
+        shell: bash
+        run: |
+          set -u
+
+          echo "Pinging MonkeyCode MCP..."
+
+          success=0
+
+          for attempt in 1 2 3; do
+            echo "Attempt $attempt/3"
+
+            http_code="$(
+              curl -sS                 -o /dev/null                 -w "%{http_code}"                 -X OPTIONS                 --connect-timeout 15                 --max-time 45                 "$MCP_URL" || true
+            )"
+
+            echo "HTTP status: ${http_code:-000}"
+
+            case "$http_code" in
+              2??|3??|4??)
+                success=1
+                break
+                ;;
+            esac
+
+            sleep 15
+          done
+
+          if [ "$success" -ne 1 ]; then
+            echo "::error::MonkeyCode MCP did not return a usable HTTP response after 3 attempts."
+            exit 1
+          fi
+
+          echo "Keep-alive request completed successfully."
