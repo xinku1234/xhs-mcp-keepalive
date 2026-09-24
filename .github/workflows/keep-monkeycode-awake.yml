@@ -2,8 +2,10 @@ name: Keep MonkeyCode MCP Awake
 
 on:
   schedule:
-    # Run every 10 minutes, offset from the top of the hour.
-    - cron: "3,13,23,33,43,53 * * * *"
+    # Private-repository budget guard: run once per hour.
+    # If this repository is later made public, this can safely return to a
+    # tighter cadence without consuming private-repository Actions minutes.
+    - cron: "3 * * * *"
   workflow_dispatch:
 
 permissions:
